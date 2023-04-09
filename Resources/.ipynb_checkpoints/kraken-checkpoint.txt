@@ -1,0 +1,3 @@
+kraken_api_key:'IP+d3Fh0W3ssGHtT3u2F5Oc9MTGPn3RKPoIn6ph8zzXSCK+MzfGdujs5'
+kraken_private_key:'dbqme0Xyze8enb+EvwGyEW6YrnA1W3snhlugjO6IWCfI4fsiyw9jcH+soiu1dyxY0sxCTh1TF2F3qK70NoK+kw=='
+kraken_key_description:'api-key-1681015391638'
