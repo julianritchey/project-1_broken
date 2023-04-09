@@ -36,7 +36,7 @@ Develop a real-time portfolio tracker that performs the following functions:
 6. Organize investment data from remaining exchanges.
 
 ### Database
-~~1. Initialize queries.ipynb file in [Resources](https://github.com/julianritchey/project-1/tree/main/Resources "Application resources") folder.~~  
+1. Initialize queries.ipynb file in [Resources](https://github.com/julianritchey/project-1/tree/main/Resources "Application resources") folder.  
 2. Design database for storing investment data and portfolio forecasting data.
 3. Develop database for storing investment data and portfolio forecasting data.
 4. Develop database CRUD queries for application.
@@ -48,3 +48,11 @@ Develop a real-time portfolio tracker that performs the following functions:
 3. Develop display for current investments.
 4. Develop display for historic investments.
 5. Develop display for portfolio forecasting.
+
+### Libraries and packages used
+- uWSGI
+- Flask
+- Dash
+- Pandas
+- SQLAlchemy*
+- Flask-SQLAlchemy*
