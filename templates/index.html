@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+
+{% block body %}
+    <h1>Initial Menu</h1>
+    <form action ="/portfolio_planner" method = "post">
+        <!-- <input name="name" placeholder="name"1 type = "text"> -->
+        <select name="main_menu">
+            <option value = "Historical investment Data">Historical Investment Data</option>
+            <option value = "Current Investment Data">Current Investment Data</option>
+            <option value = "Portfolio Planner">Portfolio Planner</option>
+            <option velue = "Account Manager">Account Manager</option>
+        </select>
+        <input type="submit" value = "Submit"><br>
+    </form>
+{% endblock %}
