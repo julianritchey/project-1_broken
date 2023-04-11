@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+
+{% block body %}
+    {{ portfolio_name }}
+    <ul>
+        {%for ticker in portfolio%}
+            <li>{{ticker}}</li>
+        {% endfor %}
+    </ul>
+
+
+{% endblock %}

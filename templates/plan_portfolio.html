@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+
+{% block body %}
+    <h1>Portfolio Planner</h1>
+    <form action ="/ticker" method = "post">
+        <input name ="ticker" placeholder="ticker" type = "text">
+        <input type="submit" value = "Add to a Portfolio"><br>
+    </form>
+{% endblock %}
