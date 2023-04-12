@@ -3,7 +3,7 @@
 {% block body %}
     {{ portfolio_name }}
     <ul>
-        {%for ticker in portfolio%}
+        {%for ticker in symbols%}
             <li>{{ticker}}</li>
         {% endfor %}
     </ul>

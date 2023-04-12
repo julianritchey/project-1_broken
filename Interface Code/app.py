@@ -5,14 +5,13 @@ from flask import Flask, render_template, request, redirect
 app = Flask(__name__)
 
 #Variables
-portfolio = ["test"]
+symbols= []
 portfolio_name = ""
-initial_menu = ["Historical Investment Data", "Current Investment Data", "Portfolio Planner", "Account Manager" ]
 menu = ""
 
 @app.route("/")
 def index():
-    return render_template ("main_menu.html", menu0 = initial_menu[0], menu1 =  initial_menu[1], menu2 =  initial_menu[2], menu3 =  initial_menu[3])
+    return render_template ("main_menu.html")
 
 
 
@@ -20,12 +19,16 @@ def index():
 @app.route ("/my_portfolios", methods = ["POST", "GET"])
 def tickers():
     
+    
     ticker = request.form.get("ticker")
     portfolio_name = request.form.get("portfolio_name")
-    if not ticker:
+    if request.form.get("View Portfolio") == "View Portfolio":
+        return render_template("my_portfolios.html", symbols=symbols, portfolio_name = portfolio_name)
+    if not ticker and request.form.get("View Portfolio") != "View Portfolio":
         return "failure"
-    portfolio.append(ticker)
-    return render_template("my_portfolios.html", portfolio=portfolio, portfolio_name = portfolio_name)
+    if request.form.get("View Portfolio") != "View Portfolio":                 
+        symbols.append(ticker)
+        return render_template("my_portfolios.html", symbols=symbols, portfolio_name = portfolio_name)
 
 
 
