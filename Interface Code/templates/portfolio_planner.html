@@ -3,11 +3,18 @@
 {% block body %}
     <h1>Portfolio Planner</h1>
     <form action ="/my_portfolios" method = "post">
-        <input name="ticker" placeholder="ticker" type = "text">
-        <input type="submit" value = "Add to a Portfolio"><br>
+        <h2>Input the ticker and the investment timeframe (years)</h2>
+
+        <input name="ticker" placeholder="Ticker" type = "text"><br>
+        <input name="timeframe" placeholder="Timeframe" type = "text"><br>
         <input name ="portfolio_name" placeholder = "Portfolio Name" type = "text"><br>
+        <input type="submit" value = "Add to a Portfolio" name = "Add to a Portfolio"><br>
+        
 
         
-        <input type="submit" value="View Portfolio" name="View Portfolio"/>        
+        <input type="submit" value="View Portfolio" name="View Portfolio"/>   
+        <input type="submit" value="Run Analyses" name="Run Analyses"/>     
+        <input type="submit" value="Delete Ticker" name="Delete Ticker">
+        <!-- <button onclick="delete_ticker()">Delete Ticker</button> -->
     </form>
 {% endblock %}
