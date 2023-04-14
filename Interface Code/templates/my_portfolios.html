@@ -14,8 +14,15 @@
 
     {% if run_analyses == True %}
         <!-- display images -->
-        I am running the analyses
+        I ran the analyses<br>
+        Portfolio's Sharpe ratio is {{ results_of_simulation[0] }}<br>
+        Index's Sharpe ratio is {{ results_of_simulation[1] }}<br>
+        Portfolio's Beta is {{ results_of_simulation[2] }}<br>
+        Portfolio's weights are {{ results_of_simulation[3] }}<br>
+
+
     {% endif %} 
+
 
 
 

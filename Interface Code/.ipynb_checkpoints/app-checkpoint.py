@@ -1,14 +1,21 @@
 from flask import Flask, render_template, request, redirect
 
+import ipynb
+from main_simulation import run_simulation
 
 #Configure App
+    
 app = Flask(__name__)
+app.config['SECRET_KEY'] = '123456789'
+
+
 
 #Variables
 symbols= []
 portfolio_name = ""
 menu = ""
 run_analyses = False
+results_of_simulation = []
 
 
 
@@ -21,26 +28,27 @@ def index():
 
 @app.route ("/my_portfolios", methods = ["POST", "GET"])
 def tickers():
-    
+
     ticker = request.form.get("ticker")
     portfolio_name = request.form.get("portfolio_name")
     timeframe = request.form.get("timeframe")
-    if 
-    
+
     if request.form.get("View Portfolio") == "View Portfolio":
         return render_template("my_portfolios.html", symbols=symbols, portfolio_name = portfolio_name, timeframe = timeframe)
-    
+
     if request.form.get("Run Analyses") == "Run Analyses":
+        
+        results_of_simulation = run_simulation(symbols)
         run_analyses = True
-        return render_template("my_portfolios.html", symbols=symbols, portfolio_name = portfolio_name, run_analyses = True, timeframe = timeframe)
-    
+        return render_template("my_portfolios.html", symbols=symbols, portfolio_name = portfolio_name, run_analyses = True, timeframe = timeframe, results_of_simulation=results_of_simulation)
+
     if not ticker and request.form.get("View Portfolio") != "View Portfolio" and request.form.get("Run Analyses") != "Run Analyses" and request.form.get("Delete Ticker") != "Delete Ticker":
         return "failure"
-    
+
     if request.form.get("Delete Ticker") == "Delete Ticker":
         symbols.remove(ticker)
         return render_template("my_portfolios.html", symbols=symbols, portfolio_name = portfolio_name, timeframe = timeframe)
-    
+
     if request.form.get("View Portfolio") != "View Portfolio":                 
         symbols.append(ticker)
         return render_template("my_portfolios.html", symbols=symbols, portfolio_name = portfolio_name, timeframe = timeframe)
