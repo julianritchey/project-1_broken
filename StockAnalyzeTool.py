@@ -6,10 +6,16 @@ import matplotlib.pyplot as plt
 import holoviews as hv
 
 def calculate_statistics(symbols, start_date, end_date):
-    ticker_data = yf.download(symbols, start=start_date, end=end_date, group_by='ticker')
-    ticker_data = ticker_data.drop(columns=["Open","High","Low","Adj Close","Volume"], level=1)
-    ticker_data.columns = ['_'.join(col).strip() for col in ticker_data.columns.values]
-    ticker_data.columns = [col.split("_")[0] for col in ticker_data.columns]
+    if not isinstance(symbols, list):
+        symbols = [symbols]
+    dfs = []
+    for symbol in symbols:
+        data = yf.download(symbol, start=start_date, end=end_date)
+        close = data[['Close']].rename(columns={'Close': symbol})
+        dfs.append(close)
+
+    # merge data for all symbols
+    ticker_data = pd.concat(dfs, axis=1)
 
     all_data = []
     for symbol in symbols:
@@ -22,12 +28,11 @@ def calculate_statistics(symbols, start_date, end_date):
             "Daily Returns": symbol_daily_returns,
             "Cumulative Returns": symbol_cumulative_returns
         })
-        all_data.append(data)
-
+        all_data.append(data)      
     all_data_df = pd.concat(all_data, axis=0)
     return all_data_df
 
-    # Plot daily returns & cumulative returns for all symbols
+# Plot daily returns & cumulative returns for all symbols
 def plot_daily_returns(all_data_df):
     daily_returns_plot = all_data_df.hvplot.line(
         x='Date', 
@@ -38,7 +43,7 @@ def plot_daily_returns(all_data_df):
         title='Daily Returns by Symbol'
     )
     return daily_returns_plot
-    
+
 def plot_cumulative_returns(all_data_df):
     cumulative_returns_plot = all_data_df.hvplot.line(
         x='Date', 
@@ -50,6 +55,7 @@ def plot_cumulative_returns(all_data_df):
         legend='bottom_left'
     )    
     return cumulative_returns_plot
+
 
 def calculate_stock_betas(symbols, start_date, end_date, index='^GSPC'):
     all_data_df = calculate_statistics(symbols, start_date, end_date)
@@ -75,9 +81,9 @@ def calculate_stock_betas(symbols, start_date, end_date, index='^GSPC'):
         beta = round(cov / var, 2)
         beta_dict[symbol] = beta
 
-    df = pd.DataFrame.from_dict(beta_dict, orient='index', columns=['Beta'])
+    beta_df = pd.DataFrame.from_dict(beta_dict, orient='index', columns=['Beta'])
     
-    plot = df.hvplot.bar(
+    beta_plot = beta_df.hvplot.bar(
         x='index', 
         y='Beta', 
         xlabel='Symbol', 
@@ -86,8 +92,7 @@ def calculate_stock_betas(symbols, start_date, end_date, index='^GSPC'):
         color='orange',
         hover_color = 'green'
     )
-    return df, plot
-
+    return beta_df, beta_plot
 
 def calculate_sharpe_ratios(symbols, start_date, end_date, index='^GSPC'):
     all_data_df = calculate_statistics(symbols, start_date, end_date)
@@ -113,9 +118,9 @@ def calculate_sharpe_ratios(symbols, start_date, end_date, index='^GSPC'):
         sharpe_ratio_dict[symbol] = sharpe_ratios_symbol
         sharpe_ratio_dict["Index"] = sharpe_ratios_index
         
-    df = pd.DataFrame.from_dict(sharpe_ratio_dict, orient='index', columns=['Sharpe Ratio'])
+    sharpe_ratio_df = pd.DataFrame.from_dict(sharpe_ratio_dict, orient='index', columns=['Sharpe Ratio'])
     
-    plot = df.hvplot.bar(
+    sharpe_ratio_plot = sharpe_ratio_df.hvplot.bar(
         x='index', 
         y='Sharpe Ratio', 
         xlabel='Symbol', 
@@ -125,4 +130,4 @@ def calculate_sharpe_ratios(symbols, start_date, end_date, index='^GSPC'):
         hover_color = 'green'
     ).opts(yformatter='%.2f%%')
     
-    return df, plot
+    return sharpe_ratio_df, sharpe_ratio_plot
