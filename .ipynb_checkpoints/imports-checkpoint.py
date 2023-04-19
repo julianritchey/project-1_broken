@@ -3,3 +3,7 @@ from ipynb.fs.defs.assets.queries import insert_into_assets
 from ipynb.fs.defs.assets.queries import insert_into_assets_portfolios
 from ipynb.fs.defs.assets.queries import insert_into_portfolios
 from ipynb.fs.defs.assets.queries import delete_from_assets_portfolios
+from assets.PortfolioAnalyzeTool import portfolio_analysis
+from assets.StockAnalyzeTool import calculate_statistics
+from assets.StockAnalyzeTool import calculate_stock_betas
+from assets.StockAnalyzeTool import calculate_sharpe_ratios
