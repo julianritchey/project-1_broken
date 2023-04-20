@@ -16,12 +16,25 @@ ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
 
+<<<<<<< HEAD
 # Set style theme
 css = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css'
 
 # Create app instance
 server = Flask(__name__)
 app = Dash(server=server, external_stylesheets=[dbc.themes.DARKLY], use_pages=True, prevent_initial_callbacks="initial_duplicate")
+=======
+# Set database credentials
+db_user = env.get('DB_USER')
+db_pass = env.get('DB_PASS')
+
+# Set style theme
+font_awesome = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css'
+
+# Create app instance
+server = Flask(__name__)
+app = Dash(server=server, external_stylesheets=[dbc.themes.DARKLY, font_awesome], use_pages=True, prevent_initial_callbacks="initial_duplicate")
+>>>>>>> 5840347 (Updated 'portfolio_planner' file with portfolio calculations.)
 app.config.suppress_callback_exceptions = True
 app.title = "Investor's Dream"
 server.secret_key = env.get("APP_SECRET_KEY")

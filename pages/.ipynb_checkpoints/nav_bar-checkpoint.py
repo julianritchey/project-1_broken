@@ -1,4 +1,5 @@
 import dash
+<<<<<<< HEAD
 from dash import callback, dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
 from flask import redirect, session
@@ -67,3 +68,40 @@ def navbar(user_login):
                 dark=True,
             )
         )
+=======
+from dash import callback, dcc, html, Input, Output
+import dash_bootstrap_components as dbc
+from flask import redirect
+
+def navbar():
+    return html.Div(
+        dbc.NavbarSimple(
+            [
+                dbc.Nav(
+                    [
+                        dbc.NavItem(
+                            [
+                                dbc.NavLink(
+                                    page["name"],
+                                    href=page["path"],
+                                    active="exact",    
+                                )
+                            ]
+                        )
+                        for page in dash.page_registry.values()
+                    ],
+                    pills=True,
+                ),
+                dcc.Link(
+                    dbc.Button("Logout", class_name="me-1"),
+                    href="/logout",
+                    refresh=True
+                )
+            ],
+            brand="Investor's Dream",
+            #brand_href='/',
+            color='dark',
+            dark=True,
+        )
+    )
+>>>>>>> 5840347 (Updated 'portfolio_planner' file with portfolio calculations.)
