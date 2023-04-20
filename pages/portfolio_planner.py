@@ -5,9 +5,10 @@ from dash.exceptions import PreventUpdate
 from dotenv import find_dotenv, load_dotenv
 from flask import session
 from holoviews.plotting.plotly.dash import to_dash
-from imports import calculate_statistics, calculate_stock_betas, calculate_sharpe_ratios, delete_from_assets_portfolios, insert_into_assets, insert_into_assets_portfolios, insert_into_portfolios, portfolio_analysis, select_all_portfolio_data
+from imports import calculate_statistics, calculate_stock_betas, calculate_sharpe_ratios, delete_from_assets_portfolios, insert_into_assets, insert_into_assets_portfolios, insert_into_portfolios, MCSimulation, portfolio_analysis, run_monte_carlo_simulation, select_all_portfolio_data
 from os import environ as env
 from pathlib import Path
+import alpaca_trade_api as tradeapi
 import dash_bootstrap_components as dbc
 import holoviews as hv
 import json
@@ -26,6 +27,8 @@ register_page(
 )
 
 # Set database credentials
+alpaca_api_key = env.get('ALPACA_API_KEY')
+alpaca_secret_key = env.get('ALPACA_SECRET_KEY')
 db_user = env.get('DB_USER')
 db_pass = env.get('DB_PASS')
 
@@ -85,7 +88,7 @@ def layout():
                                     dbc.FormFloating(
                                         [
                                             dbc.Input(placeholder="Investment period (years)", id="investment_period", type='number'),
-                                            dbc.Label("Enter investment period (years)"),
+                                            dbc.Label("Investment period (years)"),
                                         ],
                                         class_name='mt-4',
                                     ),
@@ -152,6 +155,7 @@ def layout():
                                     ),
                                     dbc.ListGroup(id="ticker_group", className='mt-3'),
                                     dbc.ListGroup(id="weight_group", className='mt-3'),
+                                    dbc.FormText("Note: Weights should total 1"),
                                 ]),
                             ),
                         ),
@@ -174,7 +178,7 @@ def layout():
                                 ]),
                             ),
                         ],
-                        class_name='mt-4',
+                        class_name='mt-4 mb-4',
                     ),
                 ],
             ),
@@ -185,12 +189,17 @@ def layout():
             dcc.Store(id='load_portfolio_store'),
             dcc.Store(id='save_portfolio_store'),
             dcc.Store(id='refresh_tab'),
+            dcc.Store(id='investment_input_store'),
             dcc.Store(id='calculations_tab_body_store', data=[
                 dbc.Button("Run calculations", class_name='mb-3', color='primary', disabled=True, id={'type':'portfolio_button', 'purpose':'calculate'}, style={'width':'100%'}),
                 html.Div(id={'type':'portfolio_div', 'purpose':'calculate'}),
             ]),
             dcc.Store(id='simulations_tab_body_store', data=[
-                dbc.Button("Run simulations", class_name='mb-3', color='primary', disabled=True, id={'type':'portfolio_button', 'purpose':'simulate'}, style={'width':'100%'}),
+                dbc.FormFloating([
+                    dbc.Input(placeholder="Investment amount", id="investment_input", type="number"),
+                    dbc.Label("Investment amount"),
+                ]),
+                dbc.Button("Run simulations", class_name='mb-3 mt-3', color='primary', disabled=True, id={'type':'portfolio_button', 'purpose':'simulate'}, style={'width':'100%'}),
                 html.Div(id={'type':'portfolio_div', 'purpose':'simulate'}),
             ]),
         ],
@@ -444,117 +453,199 @@ def display_portfolio_tab(active_tab, calculations_tab_data, simulations_tab_dat
         return calculations_tab_data, True
 
 @callback(
+    Output('investment_input_store', 'data'),
+    Input('investment_input', 'value'),
+    prevent_initial_call=True,
+)
+def set_investment_input(investment):
+    return investment
+
+@callback(
     Output({'type':'portfolio_div', 'purpose':ALL}, 'children'),
     Input({'type':'portfolio_button', 'purpose':ALL}, 'n_clicks'),
     State('ticker_list', 'data'),
     State({'type':'weight', 'ticker':ALL}, 'value'),
     State('investment_period', 'value'),
+    State('investment_input_store', 'data'),
     prevent_initial_call=True,
 )
-def run_portfolio_calculations(n_clicks, ticker_list, weights, investment_period):
+def run_portfolio_calculations(n_clicks, ticker_list, weights, investment_period, investment_amount):
     if n_clicks==0 or ticker_list is None:
         return PreventUpdate
     
     today = np.datetime64('today', 'D')
+    end_date = today - np.timedelta64(1, 'D')
     start_date = today - np.timedelta64(investment_period*365, 'D')
     
     if ctx.triggered_id.purpose == 'calculate':
-        # if len(ticker_list) > 1:
-            statistics = calculate_statistics(ticker_list, str(start_date), str(today))
-            beta_list = calculate_stock_betas(ticker_list, str(start_date), str(today))
-            sharpe_ratio_list = calculate_sharpe_ratios(ticker_list, str(start_date), str(today))
-            sharpe_ratio_list = sharpe_ratio_list.drop('Index')
-            
-            beta, sharpe_ratios, cumulative_returns_portfolio, cumulative_returns_index = portfolio_analysis(ticker_list, weights, '^GSPC', str(start_date), str(today))
-            portfolio_sr = sharpe_ratios.iloc[0]['Sharpe Ratio']
-            index_sr = sharpe_ratios.iloc[1]['Sharpe Ratio']
-            cumulative_returns = cumulative_returns_portfolio.join(cumulative_returns_index)
-            
-            statistics_table = sharpe_ratios.set_index('Asset')
-            statistics_table = pd.concat([statistics_table, sharpe_ratio_list], axis=0)
-            statistics_table = pd.concat([statistics_table, beta_list], axis=1)
-            statistics_table.loc['Index', 'Beta'] = '--'
-            statistics_table.loc['Portfolio', 'Beta'] = beta
-            statistics_table = statistics_table.reset_index()
-            statistics_table = statistics_table.rename(columns={'index': 'Assets'})
-            
-            close_price = statistics.drop(columns=['Daily Returns', 'Cumulative Returns'])
-            close_price = close_price.pivot_table(values='Close Price', index='Date', columns="Symbol", dropna=True)
-            daily_returns = statistics.drop(columns=['Close Price', 'Cumulative Returns'])
-            daily_returns = daily_returns.pivot_table(values='Daily Returns', index='Date', columns="Symbol", dropna=True)
-            cumulative_returns_stock = statistics.drop(columns=['Close Price', 'Daily Returns'])
-            cumulative_returns_stock = cumulative_returns_stock.pivot_table(values='Cumulative Returns', index='Date', columns="Symbol", dropna=True)
-            combined_cumulative_returns = pd.concat([cumulative_returns, cumulative_returns_stock], axis=1)
-            combined_cumulative_returns = combined_cumulative_returns.rename(columns={'Portfolio Returns': 'Portfolio'})
-            sharpe_ratios = statistics_table.drop(columns=['Beta'])
-            sharpe_ratios = sharpe_ratios.set_index('Assets')
-            
-            ccr_data = []
-            for column in combined_cumulative_returns:
-                ccr_data.append({'x': combined_cumulative_returns.index, 'y': combined_cumulative_returns[column].to_numpy(), 'type': 'line', 'name': column})
-            
-            cp_data = []
-            for column in close_price:
-                cp_data.append({'x': close_price.index, 'y': close_price[column].to_numpy(), 'type': 'line', 'name': column})
-            
-            dr_data = []
-            for column in daily_returns:
-                dr_data.append({'x': daily_returns.index, 'y': daily_returns[column].to_numpy(), 'type': 'line', 'name': column})
-                
-            sr_data = []
-            for column in sharpe_ratios:
-                sr_data.append({'x': sharpe_ratios[column].index, 'y': sharpe_ratios[column].to_numpy(), 'type': 'bar', 'name': column})
-            
-            print(sr_data)
-            
-            new_output = [
-                dash_table.DataTable(
-                    statistics_table.to_dict('records'),
-                    style_table={'color':'black'},
-                    style_header={'padding-left':'0.5rem', 'text-align':'left'},
-                    style_data={'padding-left':'0.5rem', 'text-align':'left'},
-                ),
-                dcc.Graph(
-                    figure={
-                        'data': sr_data,
-                        'layout': {
-                            'title': 'Sharpe Ratios'
-                        }
-                    },
-                    className='mt-3',
-                ),
-                dcc.Graph(
-                    figure={
-                        'data': ccr_data,
-                        'layout': {
-                            'title': 'Cumulative Returns'
-                        }
-                    },
-                    className='mt-3',
-                ),
-                dcc.Graph(
-                    figure={
-                        'data': dr_data,
-                        'layout': {
-                            'title': 'Daily Returns'
-                        }
-                    },
-                    className='mt-3',
-                ),
-                dcc.Graph(
-                    figure={
-                        'data': cp_data,
-                        'layout': {
-                            'title': 'Daily Closing Price'
-                        }
-                    },
-                    className='mt-3',
-                ),
-            ]
-    elif ctx.triggered_id.purpose == 'simulate':
-        if len(ticker_list) > 1:
-            new_output = html.P("Sim data for stocks > 1")
-        else:
-            new_output = html.P("Sim data for stocks < 1")
+        statistics = calculate_statistics(ticker_list, str(start_date), str(end_date))
+        beta_list = calculate_stock_betas(ticker_list, str(start_date), str(end_date))
+        sharpe_ratio_list = calculate_sharpe_ratios(ticker_list, str(start_date), str(end_date))
+        sharpe_ratio_list = sharpe_ratio_list.drop('Index')
 
+        beta, sharpe_ratios, cumulative_returns_portfolio, cumulative_returns_index = portfolio_analysis(ticker_list, weights, '^GSPC', str(start_date), str(end_date))
+        portfolio_sr = sharpe_ratios.iloc[0]['Sharpe Ratio']
+        index_sr = sharpe_ratios.iloc[1]['Sharpe Ratio']
+        cumulative_returns = cumulative_returns_portfolio.join(cumulative_returns_index)
+
+        statistics_table = sharpe_ratios.set_index('Asset')
+        statistics_table = pd.concat([statistics_table, sharpe_ratio_list], axis=0)
+        statistics_table = pd.concat([statistics_table, beta_list], axis=1)
+        statistics_table.loc['Index', 'Beta'] = '--'
+        statistics_table.loc['Portfolio', 'Beta'] = beta
+        statistics_table = statistics_table.reset_index()
+        statistics_table = statistics_table.rename(columns={'index': 'Assets'})
+
+        close_price = statistics.drop(columns=['Daily Returns', 'Cumulative Returns'])
+        close_price = close_price.pivot_table(values='Close Price', index='Date', columns="Symbol", dropna=True)
+        daily_returns = statistics.drop(columns=['Close Price', 'Cumulative Returns'])
+        daily_returns = daily_returns.pivot_table(values='Daily Returns', index='Date', columns="Symbol", dropna=True)
+        cumulative_returns_stock = statistics.drop(columns=['Close Price', 'Daily Returns'])
+        cumulative_returns_stock = cumulative_returns_stock.pivot_table(values='Cumulative Returns', index='Date', columns="Symbol", dropna=True)
+        combined_cumulative_returns = pd.concat([cumulative_returns, cumulative_returns_stock], axis=1)
+        combined_cumulative_returns = combined_cumulative_returns.rename(columns={'Portfolio Returns': 'Portfolio'})
+        sharpe_ratios = statistics_table.drop(columns=['Beta'])
+        sharpe_ratios = sharpe_ratios.set_index('Assets')
+
+        ccr_data = []
+        for column in combined_cumulative_returns:
+            ccr_data.append({'x': combined_cumulative_returns.index, 'y': combined_cumulative_returns[column].to_numpy(), 'type': 'line', 'name': column})
+
+        cp_data = []
+        for column in close_price:
+            cp_data.append({'x': close_price.index, 'y': close_price[column].to_numpy(), 'type': 'line', 'name': column})
+
+        dr_data = []
+        for column in daily_returns:
+            dr_data.append({'x': daily_returns.index, 'y': daily_returns[column].to_numpy(), 'type': 'line', 'name': column})
+
+        sr_data = []
+        for column in sharpe_ratios:
+            sr_data.append({'x': sharpe_ratios[column].index, 'y': sharpe_ratios[column].to_numpy(), 'type': 'bar', 'name': column})
+
+        new_output = [
+            dash_table.DataTable(
+                statistics_table.to_dict('records'),
+                style_table={'color':'black'},
+                style_header={'padding-left':'0.5rem', 'text-align':'left'},
+                style_data={'padding-left':'0.5rem', 'text-align':'left'},
+            ),
+            dcc.Graph(
+                figure={
+                    'data': sr_data,
+                    'layout': {
+                        'title': 'Sharpe Ratios',
+                    }
+                },
+                className='mt-3',
+            ),
+            dcc.Graph(
+                figure={
+                    'data': ccr_data,
+                    'layout': {
+                        'title': 'Cumulative Returns',
+                    }
+                },
+                className='mt-3',
+            ),
+            dcc.Graph(
+                figure={
+                    'data': dr_data,
+                    'layout': {
+                        'title': 'Daily Returns'
+                    }
+                },
+                className='mt-3',
+            ),
+            dcc.Graph(
+                figure={
+                    'data': cp_data,
+                    'layout': {
+                        'title': 'Daily Closing Price'
+                    }
+                },
+                className='mt-3',
+            ),
+        ]
+    elif ctx.triggered_id.purpose == 'simulate':
+        cumulative_returns, return_summary, ci_lower, ci_upper = run_monte_carlo_simulation(
+            api_key=alpaca_api_key, 
+            secret_key=alpaca_secret_key,
+            tickers=ticker_list,
+            start_date=start_date,
+            end_date=end_date,
+            weights=weights,
+            num_simulation=500,
+            num_years=investment_period,
+            investment=investment_amount
+        )
+
+        return_summary = pd.DataFrame(return_summary)
+        return_summary = return_summary.reset_index()
+        return_summary.columns = ['Statistic', 'Value']
+        for i in range(len(return_summary)):
+            return_summary['Statistic'][i] = return_summary['Statistic'][i].title()
+
+        final_cumulative_returns = pd.DataFrame(cumulative_returns.iloc[-1, :])
+        final_cumulative_returns.columns = ['Value']
+        # plt = adj_cumulative_returns.plot(kind='hist', bins=10,density=True,title=plot_title)
+        # plt.axvline(self.confidence_interval.iloc[0], color='r')
+        # plt.axvline(self.confidence_interval.iloc[1], color='r')
+
+        fig = px.histogram(
+            data_frame=final_cumulative_returns,
+            histnorm='density',
+            nbins=int(investment_period*5),
+            title='Distribution of Final Cumuluative Returns Across All 500 Simulations',
+            x='Value',
+        )
+        fig.update_layout(
+            xaxis_title_text='Value',
+            yaxis_title_text='Density',
+        )
+        fig.add_vline(x=return_summary.iloc[8, 1], line_color = 'firebrick')
+        fig.add_vline(x=return_summary.iloc[9, 1], line_color = 'firebrick')
+
+        # dist_data = []
+        # for column in final_cumulative_returns:
+        #     dist_data.append({
+        #     'x': final_cumulative_returns.index,
+        #     'y': final_cumulative_returns[column].to_numpy(),
+        #     'type': 'histogram',
+        #     'name': column,
+        #     'xbins.size': int(investment_period*5),
+        #     'histnorm': 'density'
+        # })
+
+        sim_data = []
+        for column in cumulative_returns:
+            sim_data.append({
+                'x': cumulative_returns.index,
+                'y': cumulative_returns[column].to_numpy(),
+                'type': 'line',
+                'name': column
+            })
+
+        new_output = [
+            html.P(f"There is a 95% chance that, with an initial investment of ${float(investment_amount):.2f}, the current portfolio will result in a total value between ${float(ci_lower):.2f} and ${float(ci_upper):.2f} after {investment_period} year(s)."),
+            dash_table.DataTable(
+                return_summary.to_dict('records'),
+                style_table={'color':'black'},
+                style_header={'padding-left':'0.5rem', 'text-align':'left'},
+                style_data={'padding-left':'0.5rem', 'text-align':'left'},
+            ),
+            dcc.Graph(
+                figure={
+                    'data': sim_data,
+                    'layout': {
+                        'title': f'500 Simulations of Cumulative Portfolio Return Trajectories Over the Next {investment_period*252} Trading Days. ({investment_period} Years)',
+                    }
+                },
+                className='mt-3',
+            ),
+            dcc.Graph(
+                figure=fig,
+                className='mt-3',
+            ),
+        ]
     return [new_output]
