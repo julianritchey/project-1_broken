@@ -1,3 +1,0 @@
-kukoin_api_key:'64324ccc0303210001ccdeba'
-kukoin_api_secret:'a0270a1e-bac9-4120-91aa-83f795ba3466'
-kukoin_api_name:'hbjsajsnkdkm8717hbds'
